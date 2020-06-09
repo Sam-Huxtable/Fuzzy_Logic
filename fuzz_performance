@@ -1,0 +1,156 @@
+#!/usr/bin/python
+
+import cv2
+import sys
+import numpy as np
+from matplotlib import pyplot as plt
+import math
+import scipy.stats as stats
+	
+	
+def ObtainGradient(inputImage):
+	#Convert image to grayscale
+	greyImage = cv2.cvtColor(inputImage, cv2.COLOR_BGR2GRAY)
+	#Change the grayscale image into a array
+	imageArray = np.asarray( greyImage, dtype="int32")
+
+	#Find the Gradient
+	I = np.gradient(imageArray)
+	
+	return I
+
+def FuzzyInterface(I):
+	
+	Ya = 0	
+	Yb = 0.45
+	Yc = 1
+	Xa = 0
+	Xb = 0.46
+	Xc = 1
+	Ix = I[0]
+	Iy = I[1]
+
+	mux = np.mean(Ix)
+	variancex = np.var(Ix)
+	sigmax = math.sqrt(variancex)
+	
+	muy = np.mean(Iy)
+	variancey = np.var(Iy)
+	sigmay = math.sqrt(variancey)
+	
+	#Intailise Mfx & Mfy
+	numrows = len(Iy)
+	numcols = len(Iy[0])
+	Mfx = []
+	Mfy = []	
+	for i in range(numrows):
+		Mfx.append([0]*numcols)
+		Mfy.append([0]*numcols)
+		
+	#Assign Values between 0 and 1 using a gausean distribution 	
+	iterX = 0
+	iterY = 0
+	
+	for i1 in Ix:
+		iterY = 0
+		for f1 in i1:	
+			Ax = math.exp(-(((f1 - mux) ** 2)/(2 * (sigmax ** 2))))
+			Mfx[iterX][iterY] = (1/(sigmax*math.sqrt(2*3.14)) **Ax)
+			
+			Ay = math.exp(-(((Ix[iterX][iterY] - muy) ** 2)/(2 * (sigmay ** 2))))
+			Mfy[iterX][iterY] = (1/(sigmay*math.sqrt(2*3.14)) **Ay)
+			
+			if Mfy[iterX][iterY] > Ya:
+				if Mfy[iterX][iterY] < Yb:
+					Mfy[iterX][iterY] = 0	
+			if Mfy[iterX][iterY] > Yb:
+				Mfy[iterX][iterY] = 0.5
+		
+			if Mfx[iterX][iterY] > Xa:
+				if Mfx[iterX][iterY] < Xb:
+					Mfx[iterX][iterY] = 0	
+			if Mfx[iterX][iterY] > Xb:
+				Mfx[iterX][iterY] = 0.5
+			
+			iterY = iterY+1	
+		iterX = iterX+1		
+		
+	iterX = 0
+	iterY = 0 
+	i1 = 0
+	f1 = 0
+	
+	Mfx = np.array(Mfx)
+	Mfy = np.array(Mfy)
+	Mfxy = np.add(Mfx, Mfy)
+	
+	return Mfxy
+
+def Membership(Mfx, Mfy):
+
+	Ya = 0	
+	Yb = 0.7
+	Yc = 1
+	Xa = 0
+	Xb = 0.8
+	Xc = 1
+	
+	f = 0
+	j = 0
+				
+	# Find Membership values for both X and Y
+	for i in Mfy:
+		for k in i:
+			if k > Ya:
+				if k < Yb:
+					Mfy[j][f] = 0	
+			if k > Yb:
+				Mfy[j][f] = 0.5
+		
+			if Mfx[j][f] > Xa:
+				if Mfx[j][f] < Xb:
+					Mfx[j][f] = 0	
+			if Mfx[j][f] > Xb:
+				Mfx[j][f] = 0.5
+				
+			f = f+1
+		f = 0
+		j = j+1
+	
+	Mfx = np.array(Mfx)
+	Mfy = np.array(Mfy)
+	Mfxy = np.add(Mfx, Mfy)
+	
+	return Mfxy
+	
+	
+def main():
+	 
+	# if len(sys.argv) < 2:
+		# video_capture = cv2.VideoCapture(0)
+	# else:
+		# video_capture = cv2.VideoCapture(sys.argv[1])
+
+	while(1):
+		# ret, image = video_capture.read()
+
+		# if not ret:
+			# break
+		image = cv2.imread("C:/Users/SHuxt/Downloads/POETdataset/POETdataset/Images/Plane/aeroplane_2008_000021.jpg")
+		#Find the Gradient of the Frame
+		GradientImage = ObtainGradient(image)
+		#Fuzzify the X-Gradient & Y-Gradient by appling a gausean blur
+		out = FuzzyInterface(GradientImage)
+		#Obtain membership values 
+		#out = Membership(Mfx, Mfy)
+
+		cv2.imshow("Faces.jpg", out)
+		
+		if cv2.waitKey(1) & 0xFF == ord('q'):
+			break
+
+		#video_capture.release()
+	#cv2.destroyAllWindows()
+ 
+if __name__ == "__main__":
+    main()
